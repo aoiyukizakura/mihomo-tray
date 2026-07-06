@@ -62,7 +62,7 @@ func onReady(cfg *config.Config, client *mihomo.Client, exePath string, startupE
 	systray.SetTooltip("Mihomo Tray")
 
 	// Build the menu.
-	mi := menu.Build(client, cfg.MixedPort, exePath)
+	mi := menu.Build(client, cfg.MixedPort, cfg.FakeIPFilter, exePath)
 
 	// Start state poller.
 	poller := state.NewPoller(client)

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -13,9 +14,11 @@ const (
 )
 
 // EnableSystemProxy turns on the Windows system proxy, pointing it to
-// 127.0.0.1:port.
-func EnableSystemProxy(port int) error {
-	key, err := registry.OpenKey(registry.CURRENT_USER, internetSettingsKey, registry.SET_VALUE)
+// 127.0.0.1:port. It preserves any existing ProxyOverride (bypass list);
+// only if the bypass list is currently empty does it populate one from
+// fakeIPFilter domains (with "<local>" always appended).
+func EnableSystemProxy(port int, fakeIPFilter []string) error {
+	key, err := registry.OpenKey(registry.CURRENT_USER, internetSettingsKey, registry.QUERY_VALUE|registry.SET_VALUE)
 	if err != nil {
 		return fmt.Errorf("打开 Internet Settings 注册表键失败: %w", err)
 	}
@@ -28,10 +31,19 @@ func EnableSystemProxy(port int) error {
 	if err := key.SetStringValue("ProxyServer", server); err != nil {
 		return fmt.Errorf("设置 ProxyServer 失败: %w", err)
 	}
-	// Set ProxyOverride to <local> to bypass local addresses.
-	if err := key.SetStringValue("ProxyOverride", "<local>"); err != nil {
-		return fmt.Errorf("设置 ProxyOverride 失败: %w", err)
+
+	// Preserve existing bypass list: only write if it doesn't already exist.
+	existing, _, err := key.GetStringValue("ProxyOverride")
+	if err != nil || existing == "" {
+		// Build bypass from fake-ip-filter + <local>.
+		parts := append(fakeIPFilter, "<local>")
+		bypass := strings.Join(parts, ";")
+		if err := key.SetStringValue("ProxyOverride", bypass); err != nil {
+			return fmt.Errorf("设置 ProxyOverride 失败: %w", err)
+		}
 	}
+	// ponytail: existing bypass preserved — user edits survive toggles.
+
 	return nil
 }
 

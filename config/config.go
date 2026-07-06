@@ -12,10 +12,11 @@ import (
 
 // Config holds the parsed configuration values needed by the tray app.
 type Config struct {
-	MixedPort      int    // default: 7890
-	ControllerPort int    // default: 9090
-	ControllerAddr string // e.g. "127.0.0.1:9090"
-	ConfigError    string // non-empty if config parse had issues
+	MixedPort      int      // default: 7890
+	ControllerPort int      // default: 9090
+	ControllerAddr string   // e.g. "127.0.0.1:9090"
+	FakeIPFilter   []string // domains from dns.fake-ip-filter, for proxy bypass
+	ConfigError    string   // non-empty if config parse had issues
 }
 
 // Load reads the mihomo config.yaml and extracts the relevant fields.
@@ -77,5 +78,39 @@ func Load() *Config {
 		}
 	}
 
+	// Parse dns.fake-ip-filter for proxy bypass list.
+	cfg.FakeIPFilter = parseFakeIPFilter(raw)
+
 	return cfg
+}
+
+// parseFakeIPFilter extracts dns.fake-ip-filter entries from the parsed YAML.
+func parseFakeIPFilter(raw map[string]interface{}) []string {
+	dns, ok := raw["dns"]
+	if !ok {
+		return nil
+	}
+	dnsMap, ok := dns.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	filter, ok := dnsMap["fake-ip-filter"]
+	if !ok {
+		return nil
+	}
+	filterList, ok := filter.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	var result []string
+	for _, entry := range filterList {
+		if s, ok := entry.(string); ok && s != "" {
+			// Strip the leading "+" if present (mihomo uses "+.example.com"
+			// for wildcard matching, Windows bypass uses "*.example.com").
+			s = strings.TrimPrefix(s, "+")
+			result = append(result, s)
+		}
+	}
+	return result
 }

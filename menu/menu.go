@@ -29,7 +29,7 @@ type menuItems struct {
 
 // Build creates the full tray menu and returns references to dynamic items.
 // It also wires up all click handlers.
-func Build(client *mihomo.Client, proxyPort int, exePath string) *menuItems {
+func Build(client *mihomo.Client, proxyPort int, fakeIPFilter []string, exePath string) *menuItems {
 	mi := &menuItems{}
 
 	// --- Status display (disabled) ---
@@ -49,7 +49,7 @@ func Build(client *mihomo.Client, proxyPort int, exePath string) *menuItems {
 				}
 			} else {
 				// Currently unchecked → enable
-				if err := registry.EnableSystemProxy(proxyPort); err == nil {
+				if err := registry.EnableSystemProxy(proxyPort, fakeIPFilter); err == nil {
 					mi.systemProxy.Check()
 				}
 			}
